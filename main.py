@@ -18,15 +18,20 @@ def train(save_dir="./sandbox",
           pretrained=True,
           num_classes=1,
           accelerator=None,
-          logger_type='test_tube',
+          logger_type='wandb',
+          project_name="landfill",
           gradient_clip_val=0.5,
-          max_epochs=1,
-          patience=10,
+          max_epochs=20,
+          patience=5,
           stochastic_weight_avg=True,
           limit_train_batches=1.0,
           tb_path="./sandbox/tb",
           loss_fn="BCE",
           weights_summary=None,
+          batch_size=32,
+          num_workers=8,
+          learning_rate=0.001,
+          pos_weight=None,
           ):
     """
     Run the training experiment.
@@ -60,9 +65,9 @@ def train(save_dir="./sandbox",
     task = get_task(args)
     trainer = Trainer(gpus=gpus,
                       accelerator=accelerator,
-                      logger=get_logger(logger_type, save_dir, exp_name),
-                      callbacks=[get_early_stop_callback(patience),
-                                 get_ckpt_callback(save_dir, exp_name)],
+                      logger=get_logger(logger_type, save_dir, exp_name, project_name, metric_summary=[(task.monitor, 'max')]),
+                      callbacks=[get_early_stop_callback(patience, task.monitor),
+                                 get_ckpt_callback(save_dir, exp_name, task.monitor)],
                       weights_save_path=os.path.join(save_dir, exp_name),
                       gradient_clip_val=gradient_clip_val,
                       limit_train_batches=limit_train_batches,
@@ -73,6 +78,7 @@ def train(save_dir="./sandbox",
 
 
 def test(ckpt_path,
+         test_split="valid",
          gpus=4,
          **kwargs):
     """
@@ -86,7 +92,7 @@ def test(ckpt_path,
     Returns: None
 
     """
-    task = load_task(ckpt_path, **kwargs)
+    task = load_task(ckpt_path, test_split, **kwargs)
     trainer = Trainer(gpus=gpus)
     trainer.test(task)
 

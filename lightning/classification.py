@@ -1,6 +1,7 @@
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
+import torchvision.transforms as T
 
 from models import get_model
 from eval import get_loss_fn, BinaryClassificationEvaluator
@@ -18,6 +19,7 @@ class ClassificationTask(pl.LightningModule, TFLogger):
         self.model = get_model(params)
         self.loss = get_loss_fn(params)
         self.evaluator = BinaryClassificationEvaluator(threshold=0.5)
+        self.monitor = "f1"
 
     def forward(self, x):
         return self.model(x)
@@ -72,19 +74,39 @@ class ClassificationTask(pl.LightningModule, TFLogger):
         return self.validation_epoch_end(outputs)
 
     def configure_optimizers(self):
-        return [torch.optim.Adam(self.parameters(), lr=0.02)]
-
+        return [torch.optim.Adam(self.parameters(), 
+                lr=self.hparams["learning_rate"])]
+    
+    def transforms(self, split):
+        transforms = [T.ToTensor(),
+                      T.Normalize(mean=[0.485, 0.456, 0.406],
+                                  std=[0.229, 0.224, 0.225])]
+        
+        if split == "train":
+            train_transforms = [T.RandomHorizontalFlip(0.5),
+                                T.RandomVerticalFlip(0.5),
+                                T.RandomResizedCrop(size=(300,300),
+                                                   scale=(0.75,1.0),
+                                                   ratio=(1.0,1.0)),
+                                ]
+            transforms = train_transforms + transforms 
+        
+        return T.Compose(transforms)
+    
     def train_dataloader(self):
-        dataset = ImageClassificationDemoDataset()
-        return DataLoader(dataset, shuffle=True,
-                          batch_size=2, num_workers=8)
+        return DataLoader(dataset, 
+                          shuffle=True,
+                          batch_size=self.hparams["batch_size"], 
+                          num_workers=self.hparams["num_workers"])
 
     def val_dataloader(self):
-        dataset = ImageClassificationDemoDataset()
-        return DataLoader(dataset, shuffle=False,
-                          batch_size=1, num_workers=8)
+        return DataLoader(dataset, 
+                          shuffle=False,
+                          batch_size=self.hparams["batch_size"], 
+                          num_workers=self.hparams["num_workers"])
 
     def test_dataloader(self):
-        dataset = ImageClassificationDemoDataset()
-        return DataLoader(dataset, shuffle=False,
-                          batch_size=1, num_workers=8)
+        return DataLoader(dataset, 
+                          shuffle=False,
+                          batch_size=self.hparams["batch_size"],
+                          num_workers=self.hparams["num_workers"])

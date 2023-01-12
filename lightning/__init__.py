@@ -18,4 +18,4 @@ def load_task(ckpt_path, **kwargs):
         task = ClassificationTask
     else:
         task = DetectionTask
-    return task.load_from_checkpoint(ckpt_path)
+    return task.load_from_checkpoint(ckpt_path, **kwargs)
